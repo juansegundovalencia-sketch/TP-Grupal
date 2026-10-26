@@ -108,7 +108,6 @@ def multiplica_rala_vector(A,v):
     
     for (i,j), valor in dic.items():
         w[i] += valor* v[j]
-    
     return w 
 
 def es_markov(T,tol=1e-6):
