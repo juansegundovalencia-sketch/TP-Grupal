@@ -5,6 +5,11 @@ import numpy as np
  
 def svd_reducida(A,k="max",tol=1e-15):
 
+    m_A, n_A = A.shape
+    transpuesta = False
+    if (m_A < n_A):
+        A = A.T
+        transpuesta = True
 
     S,D = diagRH(A.T @ A,tol,K =1000)
 
@@ -39,10 +44,14 @@ def svd_reducida(A,k="max",tol=1e-15):
     Vñ = np.array(Vñ)
     Uñ = np.array(Uñ)
     Vñ = Vñ.T
-    
+
+    if transpuesta:
+        return Vñ, Sñ, Uñ.T
+      
     return  Uñ.T ,Sñ, Vñ
 
 def genera_matriz_para_test(m,n=2,tam_nucleo=0):
+    
     if tam_nucleo == 0:
         A = np.random.random((m,n))
     else:
@@ -84,3 +93,4 @@ for k in [1,3,5]:
     assert hU.shape[1] <= k, 'Dimensiones de hU incorrectas (caso a)'
     assert hV.shape[1] <= k, 'Dimensiones de hV incorrectas(caso a)'
     assert len(hS) <= k, 'Tamaño de hS incorrecto'
+
