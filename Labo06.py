@@ -87,5 +87,16 @@ def diagRH(A, tol= 1e-15, K= 1000):
 
         S = H @ S_aux # S aux solo tiene los autovectores de la sub matriz, multiplciando por H obtenemoes el autovector correspondiente a A-
 
+    # Ordenamos autovalores de mayor a menor (y sus autovectores con ellos),
+    # para no depender de que el método de la potencia haya convergido en cada paso
+    for i in range(n):
+        idx_max = i
+        for j in range(i + 1, n):
+            if D[j, j] > D[idx_max, idx_max]:
+                idx_max = j
+        if idx_max != i:
+            D[i, i], D[idx_max, idx_max] = D[idx_max, idx_max], D[i, i]
+            S[:, [i, idx_max]] = S[:, [idx_max, i]]
+
     return S, D
 #autovectores S
