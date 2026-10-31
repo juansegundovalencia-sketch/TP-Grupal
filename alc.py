@@ -393,7 +393,7 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     cant_op = 0
 
     for columna in range(n):
-        vector_a_normalizar = np.array(n)
+        vector_a_normalizar = np.zeros(n)
         for fila in range(n):
             vector_a_normalizar[fila] = A[fila][columna]
         normales[columna] = norma(vector_a_normalizar,2)
@@ -429,9 +429,9 @@ def calculaQR(A, metodo='RH', tol=1e-12):
 
 
 def producto_matriz_vector(A, v):
-    n = A.shape[0]
-    w = np.zeros(n)
-    for i in range(n):
+    m, n = A.shape
+    w = np.zeros(m)
+    for i in range(m):
         for j in range(n):
             w[i] += A[i, j] * v[j]
     return w
@@ -485,7 +485,7 @@ def metpot2k(A, tol=1e-15, K=1000):
 def diagRH(A, tol=1e-15, K=1e5):
     n = A.shape[0]
 
-    v1,lam, _ = metpot2k(A, tol, K)
+    v1, lam, _, _ = metpot2k(A, tol, K)
 
     e1 = np.zeros(n)
     e1[0] = 1
@@ -639,10 +639,7 @@ def obtener_pixeles(ruta_imagen):
     return [pixeles[i * ancho:(i + 1) * ancho] for i in range(alto)]
 
 
-if __name__ == "__main__":
-    matriz = obtener_pixeles(r"TP_template\ calib\3d\img_0001.jpg") # es mi ruta a la primera imagen de calib/3d
-    print(f"Tamaño: {len(matriz[0])} x {len(matriz)}")
-    print("Primer píxel:", matriz[0][0])  # Por ejemplo: (255, 0, 0, 255)
+
 
 # ---------- Ejercicio 2: calibración con puntos 3D ----------
 
@@ -683,10 +680,11 @@ def devolverMatricesCalibracion3d(M, alpha_iguales=False, s_cero=False):
     T = np.array(3)
     A = M[:, :3].copy() # copio las primeras columnas de M
     b = M[:, -1] # copio la ultima polumna
-
     # hago Descomposicion QR a A
-    Q, R1 = QR_con_GS
-
+    Q, R1, _ = QR_con_GS(A)
+    print("Q y R1")
+    print(Q)
+    print(R1)
     # R1 es ortogonal asi que R1^-1 = R^t 
     R = traspuesta(R1)
     # Obtengo K
@@ -729,6 +727,20 @@ def devolverMatricesCalibracion3d(M, alpha_iguales=False, s_cero=False):
 
     return R2, T, K
 
+if __name__ == "__main__":
+    matriz = obtener_pixeles(r"TP_template\ calib\3d\img_0001.jpg") # es mi ruta a la primera imagen de calib/3d
+    print(f"Tamaño: {len(matriz[0])} x {len(matriz)}")
+    print("Primer píxel:", matriz[0][0])  # Por ejemplo: (255, 0, 0, 255)
+    base = r"TP_template\ calib\3d"
+    corners = np.loadtxt(base + r"\detected_corners.txt")
+    objPts  = np.loadtxt(base + r"\p_W_corners.txt", delimiter=",")
+    imgPts  = corners[0].reshape(-1, 2)
+    #print(obtenerQ3d(imgPts,objPts))= Q
+    Q = obtenerQ3d(imgPts,objPts)
+    #print(resolverDLT3D(Q)) HASTA ACA CONSEGUIMOS M => esto esta chequedo
+    M = resolverDLT3D(Q)
+    # revisar QR_conGS R no da ortogonal y Q es un numero cuando tiene que ser matriz
+    print(devolverMatricesCalibracion3d(M, alpha_iguales=False, s_cero=False))
 
 # ---------- Ejercicio 3: calibración con puntos coplanares (Zhang) ----------
 
