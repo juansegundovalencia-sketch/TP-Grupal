@@ -622,6 +622,27 @@ def proyectarPuntosPinhole(K, R, t, objPts):
     """Proyección pinhole lambda [u v 1]^T = K [R t] [U V W 1]^T. Devuelve (n, 2)."""
     raise NotImplementedError
 
+#----------- Obtengo la matriz de pixeles --------
+from PIL import Image
+
+def obtener_pixeles(ruta_imagen):
+    """
+    Devuelve los píxeles de una imagen como una lista de filas.
+    Cada píxel es una tupla (R, G, B) o (R, G, B, A) si la imagen tiene transparencia.
+    """
+    with Image.open(ruta_imagen) as img:
+        img = img.convert("RGBA")  # Unifica el formato para facilitar el manejo
+        ancho, alto = img.size
+        pixeles = list(img.getdata())
+
+    # Organiza la lista plana en filas (alto x ancho)
+    return [pixeles[i * ancho:(i + 1) * ancho] for i in range(alto)]
+
+
+if __name__ == "__main__":
+    matriz = obtener_pixeles(r" calib\3d\img_0001.jpg") # es mi ruta a la primera imagen de calib/3d
+    print(f"Tamaño: {len(matriz[0])} x {len(matriz)}")
+    print("Primer píxel:", matriz[0][0])  # Por ejemplo: (255, 0, 0, 255)
 
 # ---------- Ejercicio 2: calibración con puntos 3D ----------
 
