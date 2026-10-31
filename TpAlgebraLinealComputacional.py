@@ -39,7 +39,7 @@ def obtener_pixeles(ruta_imagen):
 
 
 if __name__ == "__main__":
-    matriz = obtener_pixeles(" calib\3d\img_0001.jpg")
+    matriz = obtener_pixeles(r" calib\3d\img_0001.jpg")
     print(f"Tamaño: {len(matriz[0])} x {len(matriz)}")
     print("Primer píxel:", matriz[0][0])  # Por ejemplo: (255, 0, 0, 255)
 
