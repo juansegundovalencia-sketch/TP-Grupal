@@ -11,7 +11,7 @@ import labo3
 
 
 def fA(A,v): 
-    wm = A@v
+    wm = labo3.multiplicar(A, v)
     norma2wm = labo3.norma(wm,2) 
     
     if( norma2wm > 0):
@@ -37,7 +37,7 @@ def metpot2k(A, tol=1e-15, K= 1000):
     
     #si apuntan en la misma dir, su prod escalar vale 1. Si es en direcciones opuestas -1, si es PERP 0.
     
-    e = np.transpose(vm) @ v
+    e = labo3.multiplicar(vm, v)
     
     k = 0
     
@@ -45,10 +45,10 @@ def metpot2k(A, tol=1e-15, K= 1000):
     while (np.abs(e-1) > tol and k < K):
         v = vm
         vm = fAK(A, v, 2)
-        e = np.transpose(vm)@ v
+        e = labo3.multiplicar(vm, v)
         k = k + 1
 
-    lam = np.transpose(vm) @ A @ v
+    lam = labo3.multiplicar(vm, labo3.multiplicar(A, v))
 
     return vm, lam,k
 
@@ -66,14 +66,14 @@ def diagRH(A, tol= 1e-15, K= 1000):
         H =  np.eye(n)
     else:
         u = u.reshape(n, 1)
-        H = np.eye(n) - 2 * (u @ u.T) / labo3.norma(u, 2)**2
+        H = np.eye(n) - 2 * labo3.multiplicar(u, u.T) / labo3.norma(u, 2)**2
 
     #queremos ir obteniendo los primeros autovalores y autovectores sucesivamente
     if n == 2:
         S = H 
-        D = H @ A @ np.transpose(H) # conserva autoalroes.
+        D = labo3.multiplicar(labo3.multiplicar(H, A), H.T) # conserva autoalroes.
     else:
-        B = H @ A @ H.T
+        B = labo3.multiplicar(labo3.multiplicar(H, A), H.T)
         A_tilde = B[1:, 1:]
 
         S_tilde, D_tilde = diagRH(A_tilde, tol, K)
@@ -85,7 +85,7 @@ def diagRH(A, tol= 1e-15, K= 1000):
         S_aux = np.eye(n)
         S_aux[1:, 1:] = S_tilde
 
-        S = H @ S_aux # S aux solo tiene los autovectores de la sub matriz, multiplciando por H obtenemoes el autovector correspondiente a A-
+        S = labo3.multiplicar(H, S_aux) # S aux solo tiene los autovectores de la sub matriz, multiplciando por H obtenemoes el autovector correspondiente a A-
 
     # Ordenamos autovalores de mayor a menor (y sus autovectores con ellos),
     # para no depender de que el método de la potencia haya convergido en cada paso

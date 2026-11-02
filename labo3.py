@@ -10,6 +10,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def multiplicar(A, B):
+    """
+    Producto matricial A·B (reemplaza al operador @, que no está permitido).
+    A y B pueden ser matrices (2D) o vectores (1D), con la misma convención que @:
+      - vector · vector  -> escalar (producto interno)
+      - matriz · vector  -> vector
+      - vector · matriz  -> vector
+      - matriz · matriz  -> matriz
+    Cada entrada del resultado es la suma de los productos elemento a elemento
+    de una fila de A con una columna de B.
+    """
+    A = np.asarray(A, dtype=float)
+    B = np.asarray(B, dtype=float)
+
+    # vector · vector: producto interno
+    if A.ndim == 1 and B.ndim == 1:
+        if A.shape[0] != B.shape[0]:
+            raise ValueError("Dimensiones incompatibles: " + str(A.shape) + " y " + str(B.shape))
+        return np.sum(A * B)
+
+    # matriz · vector: cada fila de A por v
+    if A.ndim == 2 and B.ndim == 1:
+        if A.shape[1] != B.shape[0]:
+            raise ValueError("Dimensiones incompatibles: " + str(A.shape) + " y " + str(B.shape))
+        return np.sum(A * B, axis=1)
+
+    # vector · matriz: v por cada columna de B
+    if A.ndim == 1 and B.ndim == 2:
+        if A.shape[0] != B.shape[0]:
+            raise ValueError("Dimensiones incompatibles: " + str(A.shape) + " y " + str(B.shape))
+        return np.sum(A.reshape(-1, 1) * B, axis=0)
+
+    # matriz · matriz: armamos el resultado fila por fila
+    m, n = A.shape
+    n_B, p = B.shape
+    if n != n_B:
+        raise ValueError("Dimensiones incompatibles: " + str(A.shape) + " y " + str(B.shape))
+    C = np.zeros((m, p))
+    for i in range(m):
+        # fila i de C = fila i de A por cada columna de B
+        C[i, :] = np.sum(A[i, :].reshape(-1, 1) * B, axis=0)
+    return C
+
+
 def norma(x, p):
     if p == 'inf':
         return np.max(np.abs(x))
@@ -71,7 +115,7 @@ def normaMatMC(A, q, p, Np):
         if norma_x == 0:
             continue
 
-        valor = norma(A @ x, q) / norma_x
+        valor = norma(multiplicar(A, x), q) / norma_x
         if valor > maximo:
             maximo = valor
             x_max = x.copy()

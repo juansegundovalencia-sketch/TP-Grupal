@@ -1,5 +1,6 @@
 # Tests
 from Labo06 import diagRH
+from labo3 import multiplicar
 
 import numpy as np
  
@@ -11,7 +12,7 @@ def svd_reducida(A,k="max",tol=1e-15):
         A = A.T
         transpuesta = True
 
-    S,D = diagRH(A.T @ A,tol,K =1000)
+    S,D = diagRH(multiplicar(A.T, A),tol,K =1000)
 
     umbral = tol * max(1, np.max(np.abs(np.diag(D))))
     
@@ -39,7 +40,7 @@ def svd_reducida(A,k="max",tol=1e-15):
             Sñ.append(sigma)
 
             v = np.array(v)
-            Uñ.append((A @ v)/sigma)
+            Uñ.append(multiplicar(A, v)/sigma)
 
     Vñ = np.array(Vñ)
     Uñ = np.array(Uñ)

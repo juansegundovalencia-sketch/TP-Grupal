@@ -1,6 +1,7 @@
 import numpy as np
 
 from Labo06 import metpot2k , diagRH
+from labo3 import multiplicar
 def transiciones_al_azar_continuas(n):
     A = np.random.rand(n,n)
     
@@ -71,7 +72,7 @@ def nucleo(A,tol=1e-15):
 
     n,m = A.shape
 
-    matriz = A.T @ A
+    matriz = multiplicar(A.T, A)
 
     S, D = diagRH(matriz, tol, )
 
