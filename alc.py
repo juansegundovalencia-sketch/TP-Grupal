@@ -937,28 +937,18 @@ def armarA(Hlst):
 
 
 def calcularMatrizK2D(A):
-    """
-    Resuelve A·b = 0 con ‖b‖ = 1, arma B = K⁻ᵀK⁻¹ y la factoriza con Cholesky para obtener K.
 
-    Parámetros:
-        A: matriz de 2N x 6 devuelta por armarA.
-
-    Retorna:
-        K: matriz intrínseca de 3 x 3 con K[2][2] = 1.
-    """
     A = np.array(A, dtype=float)
     n = A.shape[1]
 
-    # Iteración inversa: el autovector de menor autovalor de AᵀA domina (AᵀA + sI)⁻¹
+    
     AtA = productoMatriz(traspuesta(A), A)
-    inversaShift = inversa(AtA + 1e-9 * np.eye(n))
-    b = np.ones(n)
-    for _ in range(5):
-        b = calcularAx(inversaShift, b)
-        b = b / norma(b, 2)
-
-    # Elegir el signo que hace B definida positiva (B₁₁ = 1/αᵤ² > 0)
-    if b[0] < 0:
+    S, _ = diagRH(AtA)
+    b = np.zeros(n)
+    for i in range(n):
+        b[i] = S[i][n - 1]
+    
+    if b[0] < 0:  #todos los elementos de la diagonal tienen el mismo signo
         b = -b
 
     B = np.array([[b[0], b[1], b[3]],
@@ -976,13 +966,19 @@ def obtenerPose2D(Hj, K):
     """Pose (R_j, t_j) de una vista a partir de H_j y K (sección 2.2 h)."""
     Hj_T = Hj.T
     K_inv = inversa(K)
-    lamda = 1 / norma(producto_matriz_vector(K_inv, Hj_T[0, :]), 2)  
+    lamda = 1 / norma(producto_matriz_vector(K_inv, Hj_T[0, :]), 2)
+
+    # H puede venir con el signo cambiado (es solución de Qh = 0 igual que -H).
+    # Si con este lamda el tablero queda detrás de la cámara (t3 < 0), usamos -lamda.
+    t_prueba = lamda * producto_matriz_vector(K_inv, Hj_T[2, :])
+    if t_prueba[2] < 0:
+        lamda = -lamda
 
     r1 = lamda * producto_matriz_vector(K_inv, Hj_T[0, :])
     r2 = lamda * producto_matriz_vector(K_inv, Hj_T[1, :])
     r3 = productoVectorial(r1, r2)
     t =  lamda * producto_matriz_vector(K_inv, Hj_T[2, :])
-    Rj = np.array([r1, r2, r3])
+    Rj = np.array([r1, r2, r3]).T
 
     return Rj, t
 
