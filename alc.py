@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
-import re
+import re # es una funcion para obtener el tiempo de las imagenes del 5.c
 # =============================================================================
 # 1. MÓDULO ALC DE LOS LABORATORIOS
 # =============================================================================
