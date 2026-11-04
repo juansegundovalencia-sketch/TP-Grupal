@@ -1,5 +1,5 @@
 import numpy as np
-
+import pandas as pd
 
 # =============================================================================
 # 1. MÓDULO ALC DE LOS LABORATORIOS
@@ -1006,11 +1006,40 @@ def circuloEnCancha(centro, radio, n=100):
 
 # ---------- Ejercicio 5: velocidad real ----------
 
+# 5.a
 def calibrarVistasSalguero(worldPts, imgPtsVistas):
     """Calibración a partir de las vistas de la esquina Salguero."""
-    raise NotImplementedError
+    # Obtengo los datos desde el archivo CSV (worldPts)
+    df = pd.read_csv(worldPts, sep=';')
+    X, Y, Z, u, v = df['X'].values, df['Y'].values, df['Z'].values
 
+    # Calculo K para cada vista y promedio
+    matrices_K = []
+    for k in range(4):
+        u = df[f'u_{k}'].values
+        v = df[f'v_{k}'].values
+        P_k = calcular_matriz_proyeccion(X, Y, Z, u, v)
+        _, _, K_k = devolverMatricesCalibracion3d(P_k)
+        matrices_K.append(K_k)
 
+    # Matriz K intrínseca final de la cámara
+    K_global = np.mean(matrices_K, axis=0)
+
+    return K_global
+
+def calcular_matriz_proyeccion(X, Y, Z, u, v):
+    A = []
+    for x_i, y_i, z_i, ui, vi in zip(X, Y, Z, u, v):
+        A.append([-x_i, -y_i, -z_i, -1, 0, 0, 0, 0, ui*x_i, ui*y_i, ui*z_i, ui])
+        A.append([0, 0, 0, 0, -x_i, -y_i, -z_i, -1, vi*x_i, vi*y_i, vi*z_i, vi])
+    A = np.array(A)
+    
+    # Descomposición SVD para resolver el sistema homogéneo A * p = 0
+    _, _, Vt = svd_reducida(A)
+    P = Vt[-1].reshape(3, 4)
+    return P
+
+# 5.b
 def velocidadPuntos(posiciones, tiempos):
     """Módulo de la velocidad entre frames consecutivos (n-1,)."""
     raise NotImplementedError
