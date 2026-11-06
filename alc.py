@@ -768,8 +768,25 @@ def obtenerHomografiaDLT(origPts, destPts):
     return H
 
 def proyectarPuntos(H, pts):
-    """Aplica una homografía a puntos 2D (n, 2) y devuelve (n, 2)."""
-    raise NotImplementedError
+    """
+    Aplica una homografía a puntos 2D.
+    H: (3,3) homografía (por ejemplo cancha -> imagen).
+    pts: (n,2) array de puntos.
+    Devuelve (n,2) array con los puntos transformados.
+    """
+    n = len(pts)
+
+    ptsMap = np.zeros((n, 2))
+    for i in range(n):
+        # (x, y) -> (x, y, 1)
+        p = np.array([pts[i][0], pts[i][1], 1.0])
+        q = producto_matriz_vector(H, p)
+
+        # divido por la tercera comp
+        ptsMap[i][0] = q[0] / q[2]
+        ptsMap[i][1] = q[1] / q[2]
+
+    return ptsMap
 
 
 def proyectarPuntosPinhole(K, R, t, objPts):
@@ -991,17 +1008,69 @@ def proyectarARotacion(M):
 
 def estimarHomografiaCancha(imgPts, canchaPts):
     """H (cancha -> imagen) a partir de correspondencias."""
-    raise NotImplementedError
+
+    Q = obtenerQ2d(imgPts, canchaPts)
+    S , _ = diagRH(productoMatriz(Q.T, Q))
+    
+    h = np.zeros(9)
+    
+    for i in range(9):
+        h[i] = S[i][8]
+
+    return h.reshape(3,3)
 
 
 def imagenACancha(H, imgPts):
-    """Mapea puntos de la imagen a la cancha usando inversa(H)."""
-    raise NotImplementedError
+    """
+    Mapea puntos de la imagen a la cancha usando inversa(H)
+    """
+    n = len(imgPts)
+
+    H_inv = inversa(H)
+
+    ptsMap = np.zeros((n, 2))
+    for i in range(n):
+        # u,v,1
+        p = np.array([imgPts[i][0], imgPts[i][1], 1.0])
+        q = producto_matriz_vector(H_inv, p)
+
+ 	#divido por la tercera comp  
+        ptsMap[i][0] = q[0] / q[2]
+        ptsMap[i][1] = q[1] / q[2]
+
+    return ptsMap
+
 
 
 def circuloEnCancha(centro, radio, n=100):
-    """Muestrea n puntos de un círculo de radio dado en coordenadas de la cancha."""
-    raise NotImplementedError
+    """
+    Muestrea puntos de un círculo sobre el piso, en coordenadas de la cancha.
+    centro: (U0, V0) en metros.
+    radio: radio del círculo en metros.
+    n: cantidad aproximada de puntos (la mitad para cada semicírculo).
+    Devuelve (m,2) array con los (U,V) del círculo, cerrado (el último punto es el primero).
+    Como no podemos usar np.cos ni np.sin, usamos la ecuación del círculo:
+    (U - U0)^2 + (V - V0)^2 = r^2  =>  V = V0 ± sqrt(r^2 - (U - U0)^2)
+    """
+    U0, V0 = centro[0], centro[1]
+    m = n // 2
+
+    # U recorre de U0 - r a U0 + r en m pasos iguales
+    paso = 2 * radio / (m - 1)
+    dU = -radio + paso * np.arange(m)
+
+    # lo que va adentro de la raíz; por redondeo puede dar un poquito negativo en los bordes
+    adentro = radio**2 - dU**2
+    adentro[adentro < 0] = 0
+    dV = np.sqrt(adentro)
+
+    # semicírculo de arriba de izquierda a derecha, y el de abajo de derecha a izquierda,
+    # así los puntos quedan en orden y plt.plot dibuja el círculo sin cruzarse
+    arriba = np.vstack([U0 + dU, V0 + dV]).T
+    abajo = np.vstack([U0 + dU[::-1], V0 - dV[::-1]]).T
+
+    # repetimos el primer punto al final para cerrar el dibujo
+    return np.vstack([arriba, abajo, arriba[0:1]])
 
 
 # ---------- Ejercicio 5: velocidad real ----------
