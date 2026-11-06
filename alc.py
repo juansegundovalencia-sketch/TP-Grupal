@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
-import cv2
 import matplotlib.pyplot as plt
-import re # es una funcion para obtener el tiempo de las imagenes del 5.c
 # =============================================================================
 # 1. MÓDULO ALC DE LOS LABORATORIOS
 # =============================================================================
@@ -792,8 +790,22 @@ def proyectarPuntos(H, pts):
 
 
 def proyectarPuntosPinhole(K, R, t, objPts):
-    """Proyección pinhole lambda [u v 1]^T = K [R t] [U V W 1]^T. Devuelve (n, 2)."""
-    raise NotImplementedError
+    """
+    Proyección pinhole: lambda (u, v, 1) = K [R | t] (X, Y, Z, 1).
+    K: (3,3) intrínsecos. R: (3,3) rotación. t: (3,) traslación.
+    objPts: (n,3) array con los (X,Y,Z) de cada punto en el mundo.
+    Devuelve (n,2) array con los (u,v) de cada punto en la imagen.
+    """
+    P = productoMatriz(K, np.hstack([R, np.array(t, dtype=float).reshape(3, 1)]))
+
+    n = len(objPts)
+    pts = np.zeros((n, 2))
+    for i in range(n):
+        # (X, Y, Z) -> (X, Y, Z, 1), proyectamos y dividimos por lambda (la tercera componente)
+        q = producto_matriz_vector(P, np.hstack([np.array(objPts[i], dtype=float), 1.0]))
+        pts[i][0] = q[0] / q[2]
+        pts[i][1] = q[1] / q[2]
+    return pts
 
 #----------- Obtengo la matriz de pixeles --------
 from PIL import Image
@@ -1002,8 +1014,20 @@ def obtenerPose2D(Hj, K):
     return Rj, t
 
 def proyectarARotacion(M):
-    """Rotación ortogonal más cercana a M, vía SVD: R = U Vt, con det(R) = +1."""
-    raise NotImplementedError
+    """
+    Rotación más cercana a una matriz M de 3x3 (que "casi" es una rotación).
+    Si M = U S V^T, la rotación más cercana es R = U V^T: es como dejar todos los
+    valores singulares en 1. Si el determinante da -1 (una reflexión), damos vuelta
+    la última columna de U para que quede +1.
+    M: (3,3) array.
+    Devuelve R (3,3) con R R^T = I y det(R) = +1.
+    """
+    U, S, V = svd_reducida(np.array(M, dtype=float))
+    R = productoMatriz(U, V.T)
+    if determinante_3x3(R) < 0:
+        U[:, 2] = -U[:, 2]
+        R = productoMatriz(U, V.T)
+    return R
 
 
 # ---------- Ejercicio 4: ubicación en la cancha ----------
@@ -1085,142 +1109,108 @@ def circuloEnCancha(centro, radio, n=100):
 # ---------- Ejercicio 5: velocidad real ----------
 
 # 5.a
-def calibrarVistasSalguero(worldPts, imgPtsVistas):
-    """Calibración a partir de las vistas de la esquina Salguero."""
-    # Obtengo los datos desde el archivo CSV (worldPts)
-    df = pd.read_csv(worldPts, sep=';')
-    X, Y, Z, u, v = df['X'].values, df['Y'].values, df['Z'].values
+def calibrarVistasSalguero(worldPts, imgPtsVistas, centro_optico):
+    """
+    Calcula K a partir de varias vistas de la esquina de Salguero, con el método del ejercicio 3
+    pero simplificado: suponemos píxeles cuadrados (alpha_u = alpha_v = f), sin sesgo (K12 = 0)
+    y el centro óptico (u0, v0) en el centro de la imagen. Así la única incógnita es f.
+    worldPts: (n,3) array con los (X,Y,Z) de cada punto, en metros. Z se ignora: los puntos del
+        cordón están a 0,1 m del piso y los tratamos como si estuvieran en Z = 0.
+    imgPtsVistas: lista con un (n,2) array por vista, con los (u,v) de cada punto en esa foto.
+    centro_optico: (u0, v0) en píxeles, el centro de la imagen.
+    Devuelve K (3,3).
+    """
+    u0, v0 = centro_optico[0], centro_optico[1]
 
-    # Calculo K para cada vista y promedio
-    matrices_K = []
-    for k in range(4):
-        u = df[f'u_{k}'].values
-        v = df[f'v_{k}'].values
-        P_k = calcular_matriz_proyeccion(X, Y, Z, u, v)
-        _, _, K_k = devolverMatricesCalibracion3d(P_k)
-        matrices_K.append(K_k)
+    # Con el centro óptico en el origen, K = diag(f, f, 1) y B = K^-T K^-1 = diag(w, w, 1), con w = 1/f^2.
+    # Las dos condiciones de cada vista (r1 perpendicular a r2, y ||r1|| = ||r2||) quedan
+    #   w (h11 h12 + h21 h22) + h31 h32 = 0
+    #   w (h11^2 + h21^2 - h12^2 - h22^2) + (h31^2 - h32^2) = 0
+    # que son de la forma a w + c = 0.
+    a = []
+    c = []
+    for k in range(len(imgPtsVistas)):
+        # Corremos los píxeles para que el centro óptico quede en (0, 0)
+        pts = np.array(imgPtsVistas[k], dtype=float)
+        pts_centrados = np.zeros(pts.shape)
+        pts_centrados[:, 0] = pts[:, 0] - u0
+        pts_centrados[:, 1] = pts[:, 1] - v0
 
-    # Matriz K intrínseca final de la cámara
-    K_global = np.mean(matrices_K, axis=0)
+        H = estimarHomografiaCancha(pts_centrados, np.array(worldPts, dtype=float)[:, 0:2])
+        h1 = H[:, 0]
+        h2 = H[:, 1]
 
-    return K_global
+        a.append(h1[0] * h2[0] + h1[1] * h2[1])
+        c.append(h1[2] * h2[2])
+        a.append(h1[0]**2 + h1[1]**2 - h2[0]**2 - h2[1]**2)
+        c.append(h1[2]**2 - h2[2]**2)
 
-def calcular_matriz_proyeccion(X, Y, Z, u, v):
-    A = []
-    for x_i, y_i, z_i, ui, vi in zip(X, Y, Z, u, v):
-        A.append([-x_i, -y_i, -z_i, -1, 0, 0, 0, 0, ui*x_i, ui*y_i, ui*z_i, ui])
-        A.append([0, 0, 0, 0, -x_i, -y_i, -z_i, -1, vi*x_i, vi*y_i, vi*z_i, vi])
-    A = np.array(A)
-    
-    # Descomposición SVD para resolver el sistema homogéneo A * p = 0
-    _, _, Vt = svd_reducida(A)
-    P = Vt[-1].reshape(3, 4)
-    return P
+    a = np.array(a)
+    c = np.array(c)
+
+    # Cuadrados mínimos para una sola incógnita: minimizar sum (a_i w + c_i)^2  =>  w = -sum(a c) / sum(a^2)
+    w = -np.sum(a * c) / np.sum(a * a)
+    if w <= 0:
+        raise ValueError("w = 1/f^2 dio negativo: las vistas no alcanzan para estimar f")
+    f = 1 / np.sqrt(w)
+
+    K = np.array([[f, 0, u0],
+                  [0, f, v0],
+                  [0, 0, 1.0]])
+    return K
 
 # 5.b
-def procesar_correspondencias_y_reproyectar(archivo_txt, imagen_path):
-    # Cargamos los datos del archivo txt (separado por tabulaciones)
-    data = np.loadtxt(archivo_txt)
-    
-    indices = data[0]
-    X = data[1]
-    Y = data[2]
-    Z = data[3]
-    u_real = data[4]
-    v_real = data[5]
-    
-    # 1. Calculamos la matriz de proyección P
-    P = calcular_matriz_proyeccion(X, Y, Z, u_real, v_real)
-    
-    # 2. Obtenemos la pose de la cámara (R, t) y la matriz intrínseca (K)
-    R, t, K = devolverMatricesCalibracion3d(P)
-    
-    # 3. Reproyectamos los puntos 3D sobre la imagen
-    puntos_3d_homogeneos = np.vstack((X, Y, Z, np.ones(X.shape)))
-    proyecciones_homogeneas = productoMatriz(P, puntos_3d_homogeneos)
-    
-    u_reproj = proyecciones_homogeneas[0] / proyecciones_homogeneas[2]
-    v_reproj = proyecciones_homogeneas[1] / proyecciones_homogeneas[2]
-    
-    # Y calculamos el error cuadrático medio (RMSE) de reproyección
-    rmse = np.sqrt(np.mean((u_real - u_reproj)**2 + (v_real - v_reproj)**2))
-    
-    # 4. Visualización sobre la imagen
-    imagen = cv2.imread(imagen_path)
-    if imagen is not None:
-        imagen = cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB)
-        plt.figure(figsize=(10, 6))
-        plt.imshow(imagen)
-        plt.scatter(u_real, v_real, c='blue', s=30, label='Puntos Reales (u, v)')
-        plt.scatter(u_reproj, v_reproj, c='red', marker='x', s=40, label='Puntos Reproyectados')
-        plt.legend()
-        plt.title(f"Reproyección sobre {imagen_path} (RMSE: {rmse:.2f} px)")
-        plt.axis('off')
-        plt.show()
-        
-    return R, t, K, (u_reproj, v_reproj)
+def calcularPoseSalguero(worldPts, imgPts, K):
+    """
+    Calcula la pose de la cámara a partir de puntos del piso (Z = 0) y la K del 5a.
+    Como todos los puntos son coplanares no sirve el DLT 3D (ver ejercicio 1a), así que
+    hacemos como en el ejercicio 3: la homografía del piso y obtenerPose2D.
+    worldPts: (n,3) array con los (X,Y,Z) de cada punto, en metros (todos con Z = 0).
+    imgPts: (n,2) array con los (u,v) de cada punto en la imagen, en píxeles.
+    K: (3,3) intrínsecos de la cámara.
+    Devuelve R (3,3) y t (3,).
+    """
+    H = estimarHomografiaCancha(imgPts, np.array(worldPts, dtype=float)[:, 0:2])
+    R, t = obtenerPose2D(H, K)
+
+    # Si K no es del todo consistente con esta foto, r1 y r2 no salen del mismo largo ni
+    # perpendiculares, y R no es una rotación. Nos quedamos con la rotación más cercana.
+    R = proyectarARotacion(R)
+    return R, t
+
+
+# 5.c
+def tiempoDesdeNombre(nombre_archivo):
+    """
+    Saca el instante de una captura a partir de su nombre, en segundos.
+    Ej: 'img_10_18_47_351.jpg' son las 10:18:47 y 351 milisegundos.
+    nombre_archivo: nombre (o ruta) del archivo.
+    Devuelve el tiempo en segundos desde las 00:00.
+    """
+    # Nos quedamos con el nombre sin carpetas ni extensión y lo partimos por los "_"
+    nombre = nombre_archivo.split("/")[-1].split(".")[0]
+    partes = nombre.split("_")
+    h, m, s, ms = int(partes[1]), int(partes[2]), int(partes[3]), int(partes[4])
+    return h * 3600 + m * 60 + s + ms / 1000
+
 
 def velocidadPuntos(posiciones, tiempos):
     """
-    Calcula la velocidad de los puntos dadas sus posiciones en función del tiempo
-    utilizando diferencias finitas (np.gradient).
-    
-    Parámetros:
-    - posiciones: array de forma (T, N, D) o (T, N)
-    - tiempos: array 1D de tamaño T
+    Velocidad de un agente entre capturas consecutivas.
+    posiciones: (n,2) array con la posición (X,Y) del agente en el piso en cada captura, en metros.
+    tiempos: (n,) array con el instante de cada captura, en segundos.
+    Devuelve (n-1,) array con el módulo de la velocidad (m/s) entre cada captura y la siguiente.
     """
-    #La función np.asarray() en NumPy se utiliza para convertir la entrada en un arreglo de NumPy (si es que ya no lo es). 
-    #Nose si se puede usar(creo que no), sino hay que convertirlo a mano.
-    #La gran ventaja de np.asarray() frente a np.array() es que si el objeto que le pasás ya es un array de NumPy, 
-    #no consume memoria extra ni hace copias innecesarias, mientras que si es una lista común de Python, 
-    #la convierte de forma automática. Por lo tanto, dejarlo como está usando np.asarray() es la forma más óptima y 
-    #limpia de hacerlo. Eso dice gemini
-    posiciones = np.asarray(posiciones)
-    tiempos = np.asarray(tiempos)
-    velocidades = np.gradient(posiciones, tiempos, axis=0)
+    n = len(posiciones)
+    velocidades = np.zeros(n - 1)
+    for i in range(n - 1):
+        # distancia recorrida sobre el piso dividido el tiempo que pasó
+        dx = posiciones[i + 1][0] - posiciones[i][0]
+        dy = posiciones[i + 1][1] - posiciones[i][1]
+        dt = tiempos[i + 1] - tiempos[i]
+        velocidades[i] = np.sqrt(dx**2 + dy**2) / dt
     return velocidades
 
-# 5.c
-def obtener_tiempo_desde_nombre(nombre_archivo):
-    """
-    Extrae la hora, minuto, segundo y milisegundo del nombre del archivo
-    y lo convierte a segundos totales.
-    Ej: 'img_10_18_47_351.jpg' -> segundos
-    """
-    match = re.search(r'img_(\d+)_(\d+)_(\d+)_(\d+)', nombre_archivo)
-    if match:
-        h, m, s, ms = map(int, match.groups())
-        return h * 3600 + m * 60 + s + ms / 1000.0
-    return 0.0
-
-def calcular_velocidades_agentes(archivos_imagenes, obtener_posicion_3d_fn):
-    """
-    Calcula la velocidad de los agentes dinámicos a lo largo de las vistas.
-    
-    - archivos_imagenes: lista con las rutas/nombres de las 5 imágenes.
-    - obtener_posicion_3d_fn: función que recibe el archivo de imagen (o sus puntos) 
-      y devuelve un array de coordenadas 3D (X, Y, Z) para los agentes de interés.
-    """
-    tiempos = []
-    posiciones_por_tiempo = []
-    
-    for img_path in archivos_imagenes:
-        # 1. Extraer el tiempo del nombre del archivo
-        t = obtener_tiempo_desde_nombre(img_path)
-        tiempos.append(t)
-        
-        # 2. Obtener las posiciones 3D del taxi, la camioneta y la señora en este fotograma
-        # (Esta función aplica la matriz P sobre los puntos 2D detectados de cada agente)
-        pos_3d_agentes = obtener_posicion_3d_fn(img_path) 
-        posiciones_por_tiempo.append(pos_3d_agentes)
-        
-    tiempos = np.array(tiempos)
-    posiciones_por_tiempo = np.array(posiciones_por_tiempo) # Forma: (T, N_agentes, 3)
-    
-    # 3. Calcular la velocidad usando la función que definimos previamente
-    velocidades = velocidadPuntos(posiciones_por_tiempo, tiempos)
-    
-    return velocidades
 
 # ---------- Ejercicio 6: POSIT para puntos coplanares ----------
 
