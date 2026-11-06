@@ -1009,7 +1009,14 @@ def proyectarARotacion(M):
 # ---------- Ejercicio 4: ubicación en la cancha ----------
 
 def estimarHomografiaCancha(imgPts, canchaPts):
-    """H (cancha -> imagen) a partir de correspondencias."""
+    """
+    Estima la homografía H que lleva puntos de la cancha a la imagen.
+    imgPts: (n,2) array con los (u,v) de cada punto en la foto, en píxeles.
+    canchaPts: (n,2) array con los (U,V) de esos mismos puntos en la cancha, en metros.
+    Hacen falta al menos 4 puntos y que no haya 3 alineados.
+    Devuelve H (3,3), definida a menos de un factor de escala.
+    h es el autovector de QᵀQ de menor autovalor, igual que m en resolverDLT3D.
+    """
 
     Q = obtenerQ2d(imgPts, canchaPts)
     S , _ = diagRH(productoMatriz(Q.T, Q))
