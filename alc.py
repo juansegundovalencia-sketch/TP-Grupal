@@ -376,13 +376,6 @@ def esSDP(A, atol=1e-8):
 
 
 def QR_con_GS(A, tol=1e-12, retorna_nops=False):
-    """
-    A una matriz de n x n 
-    tol la tolerancia con la que se filtran elementos nulos en R
-    retorna_nops permite (opcionalmente) retornar el numero de operaciones realizado
-    retorna matrices Q y R calculadas con Gram Schmidt (y como tercer argumento opcional, el numero de operaciones).
-    Si la matriz A no es de n x n, debe retornar None
-    """
     n, m = A.shape
     if (n != m):
         return None
@@ -414,25 +407,14 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
         cant_op += 3
 
     return matriz_trans, matriz_traigSup, cant_op
-    raise NotImplementedError("Labo 5: QR_con_GS pendiente")
 
 
 def QR_con_HH(A, tol=1e-12, extras=False):
-    """
-    A una matriz de m x n (m>=n)
-    tol la tolerancia con la que se filtran elementos nulos en R
-    extras : bool, opcional
-        Si es True, devuelve tambien un diccionario con las matrices Q y R de cada paso
-        (claves 'Q_matrices' y 'R_matrices'), para poder graficar el proceso.
-    Devuelve la factorizacion QR de A usando reflectores de Householder:
-        Q (m x m) ortogonal y R (m x n) triangular superior, con A = Q R.
-    Si la matriz A no cumple m>=n, devuelve None
-    """
+    
     m, n = A.shape
     if m < n:
         return None
 
-    # Arrancamos con R = A y Q = I, e iremos aplicando reflexiones: R <- H R, Q <- Q H
     R = np.array(A, dtype=float)
     Q = np.eye(m)
 
@@ -440,34 +422,28 @@ def QR_con_HH(A, tol=1e-12, extras=False):
     Q_matrices = []
 
     for k in range(n):
-        # Columna k desde la diagonal para abajo: queremos llevarla a (alfa, 0, ..., 0)
         x = R[k:, k]
         norma_x = norma(x, 2)
         if norma_x < tol:
-            continue  # la columna ya es nula debajo de la diagonal
+            continue
 
-        # Elegimos el signo de alfa opuesto al de x[0] para no restar numeros parecidos
         if x[0] >= 0:
             alfa = -norma_x
         else:
             alfa = norma_x
 
-        # u = x - alfa*e1 es la normal al plano de reflexion que manda x a alfa*e1
         u = np.array(x, dtype=float)
         u[0] = u[0] - alfa
         norma_u = norma(u, 2)
         if norma_u < tol:
-            continue  # x ya esta alineado con e1
+            continue
 
-        # Reflector de Householder del bloque: H_k = I - 2 u u^T / ||u||^2
         u = u.reshape(-1, 1)
         H_k = np.eye(m - k) - 2 * productoMatriz(u, u.T) / norma_u**2
 
-        # Lo embebemos en una identidad de m x m para no tocar las primeras k filas
         H = np.eye(m)
         H[k:, k:] = H_k
 
-        # H es simetrica y ortogonal (H = H^T = H^-1)
         R = productoMatriz(H, R)
         Q = productoMatriz(Q, H)
 
@@ -475,7 +451,6 @@ def QR_con_HH(A, tol=1e-12, extras=False):
             R_matrices.append(R.copy())
             Q_matrices.append(Q.copy())
 
-    # Filtramos los valores casi nulos que quedan debajo de la diagonal por redondeo
     for i in range(m):
         for j in range(n):
             if i > j and abs(R[i, j]) < tol:
@@ -487,10 +462,6 @@ def QR_con_HH(A, tol=1e-12, extras=False):
 
 
 def calculaQR(A, metodo='RH', tol=1e-12):
-    """
-    Elige 'RH' (Householder) o 'GS' (Gram-Schmidt) para factorizar A = Q R.
-    Si el metodo no esta entre las opciones, devuelve None.
-    """
     if metodo == 'RH':
         return QR_con_HH(A, tol)
     if metodo == 'GS':
@@ -569,7 +540,6 @@ def diagRH(A, tol=1e-15, K=1e5):
         u = u.reshape(n, 1)
         H = np.eye(n) - 2 * (productoMatriz(u, u.T)) / norma(u, 2)**2
 
-    #queremos ir obteniendo los primeros autovalores y autovectores sucesivamente
     if n == 2:
         S = H 
         D = productoMatriz(productoMatriz(H, A), traspuesta(H)) # conserva autoalroes.
@@ -586,10 +556,8 @@ def diagRH(A, tol=1e-15, K=1e5):
         S_aux = np.eye(n)
         S_aux[1:, 1:] = S_tilde
 
-        S = productoMatriz(H, S_aux) # S aux solo tiene los autovectores de la sub matriz, multiplciando por H obtenemoes el autovector correspondiente a A-
+        S = productoMatriz(H, S_aux)
 
-    # Ordenamos autovalores de mayor a menor (y sus autovectores con ellos),
-    # para no depender de que el método de la potencia haya convergido en cada paso
     for i in range(n):
         idx_max = i
         for j in range(i + 1, n):
@@ -602,20 +570,16 @@ def diagRH(A, tol=1e-15, K=1e5):
     return S, D
 
 
-# ---------- Labo 8: SVD (PENDIENTE - implementar) ----------
-
 def svd_reducida(A, k="max", tol=1e-15):
     m_A, n_A = A.shape
-    transpuesta = False
+    traspuesta = False
     if (m_A < n_A):
         A = A.T
-        transpuesta = True
+        traspuesta = True
 
     S,D = diagRH(productoMatriz(A.T, A),tol,K =1000)
 
     umbral = tol * max(1, np.max(np.abs(np.diag(D))))
-    
-    # recorre y eja solo los q no tengan autovalor cero
 
     n, m = D.shape
     
@@ -645,13 +609,12 @@ def svd_reducida(A, k="max", tol=1e-15):
     Uñ = np.array(Uñ)
     Vñ = Vñ.T
 
-    if transpuesta:
+    if traspuesta:
         return Vñ, Sñ, Uñ.T
       
     return  Uñ.T ,Sñ, Vñ
 
 def productoVectorial(a, b):
-    """Producto vectorial a x b para vectores de R^3."""
     return np.array([
         a[1] * b[2] - a[2] * b[1],
         a[2] * b[0] - a[0] * b[2],
@@ -659,23 +622,17 @@ def productoVectorial(a, b):
     ])
 
 def media(v):
-    n = v.len()
-    a = np.sum(v) / n
+    n = len(v)
+    a = np.sum(v, axis=0) / n
     return a
 
-# ---------- Pendientes del TP que no están en los labos ----------
 
 def cholesky(B):
-    """
-    Factorización de Cholesky: B = L L^T, con L triangular inferior.
-    B tiene que ser simétrica definida positiva; si no lo es, devuelve None.
-    """
     B = np.array(B, dtype=float)
     n = B.shape[0]
     L = np.zeros((n, n))
 
     for j in range(n):
-        # Diagonal: L[j,j]^2 = B[j,j] - (lo que ya aportaron las columnas anteriores)
         suma = 0.0
         for k in range(j):
             suma += L[j][k] ** 2
@@ -684,7 +641,6 @@ def cholesky(B):
             return None  # B no es definida positiva
         L[j][j] = np.sqrt(resto)
 
-        # Debajo de la diagonal: despejamos L[i,j] de B[i,j] = sum_k L[i,k] L[j,k]
         for i in range(j + 1, n):
             suma = 0.0
             for k in range(j):
@@ -695,8 +651,12 @@ def cholesky(B):
 
 
 def pseudoinversa(A):
-    """Pseudoinversa A+ a partir de svd_reducida."""
-    raise NotImplementedError("Pendiente (usa svd_reducida)")
+    U, S, V = svd_reducida(A)
+    r = len(S)
+    Sinv = np.zeros((r, r))
+    for i in range(r):
+        Sinv[i, i] = 1.0 / S[i]
+    return productoMatriz(productoMatriz(V, Sinv), U.T)
 
 # =============================================================================
 # 2. FUNCIONES DEL TRABAJO PRÁCTICO (esqueleto)
@@ -705,10 +665,6 @@ def pseudoinversa(A):
 # ---------- Auxiliares de homografía y proyección ----------
 
 def normalizarPuntos(pts):
-    """
-    Normalización isotrópica de Hartley para puntos (n, d).
-    Devuelve (pts_norm, T) con pts_norm = T * pts en homogéneas.
-    """
     media2 = media(pts)
     centrados = pts - media2
     distancia_media = media(np.sqrt(np.sum(centrados**2, axis=1)))
@@ -730,20 +686,16 @@ def normalizarPuntos(pts):
 
 
 def desnormalizarHomografia(H_norm, T_img, T_world):
-    """H = inv(T_img) @ H_norm @ T_world (ecuación 14), usando productoMatricial."""
     H = productoMatriz(productoMatriz(inversa(T_img),H_norm), T_world)
     return H
 
 def obtenerHomografiaDLT(origPts, destPts):
-    """Homografía H (3x3) tal que dest ~ H orig, por DLT."""
     assert origPts.shape[0] >= 4 and destPts.shape[0] >= 4
     n = origPts.shape[0]
 
-    # Normalizo los puntos (vital para la estabilidad numérica del SVD)
     origPts_norm, T_orig = normalizarPuntos(origPts)
     destPts_norm, T_dst = normalizarPuntos(destPts)
 
-    # Construimos la matriz A (tamaño 2N x 9)
     A = np.zeros((2 * n, 9))
     for i in range(n):
         x, y = origPts_norm[i, 0], origPts_norm[i, 1]
@@ -752,37 +704,24 @@ def obtenerHomografiaDLT(origPts, destPts):
         A[2 * i]     = [-x, -y, -1, 0, 0, 0, x * xp, y * xp, xp]
         A[2 * i + 1] = [0, 0, 0, -x, -y, -1, x * yp, y * yp, yp]
     n = origPts.shape[0]
-    # Resolver el sistema homogéneo Ah = 0 usando SVD
     _, _, Vh = svd_reducida(A)
 
-    # La solución h es la última fila de Vh (correspondiente al valor singular más pequeño)
     H_norm = Vh[-1].reshape(3, 3)
-
-    # Desnormalizar la matriz obtenida: H = T_dst_inv @ H_norm @ T_src
     H = desnormalizarHomografia(H_norm, T_dst, T_orig)
 
-    # Escalar para que H[2, 2] sea 1 (o estandarizar)
     if H[2, 2] != 0:
         H = H / H[2, 2]
         
     return H
 
 def proyectarPuntos(H, pts):
-    """
-    Aplica una homografía a puntos 2D.
-    H: (3,3) homografía (por ejemplo cancha -> imagen).
-    pts: (n,2) array de puntos.
-    Devuelve (n,2) array con los puntos transformados.
-    """
     n = len(pts)
 
     ptsMap = np.zeros((n, 2))
     for i in range(n):
-        # (x, y) -> (x, y, 1)
         p = np.array([pts[i][0], pts[i][1], 1.0])
         q = producto_matriz_vector(H, p)
 
-        # divido por la tercera comp
         ptsMap[i][0] = q[0] / q[2]
         ptsMap[i][1] = q[1] / q[2]
 
@@ -790,31 +729,19 @@ def proyectarPuntos(H, pts):
 
 
 def proyectarPuntosPinhole(K, R, t, objPts):
-    """
-    Proyección pinhole: lambda (u, v, 1) = K [R | t] (X, Y, Z, 1).
-    K: (3,3) intrínsecos. R: (3,3) rotación. t: (3,) traslación.
-    objPts: (n,3) array con los (X,Y,Z) de cada punto en el mundo.
-    Devuelve (n,2) array con los (u,v) de cada punto en la imagen.
-    """
     P = productoMatriz(K, np.hstack([R, np.array(t, dtype=float).reshape(3, 1)]))
 
     n = len(objPts)
     pts = np.zeros((n, 2))
     for i in range(n):
-        # (X, Y, Z) -> (X, Y, Z, 1), proyectamos y dividimos por lambda (la tercera componente)
         q = producto_matriz_vector(P, np.hstack([np.array(objPts[i], dtype=float), 1.0]))
         pts[i][0] = q[0] / q[2]
         pts[i][1] = q[1] / q[2]
     return pts
 
-#----------- Obtengo la matriz de pixeles --------
 from PIL import Image
 
 def obtener_pixeles(ruta_imagen):
-    """
-    Devuelve los píxeles de una imagen como una lista de filas.
-    Cada píxel es una tupla (R, G, B) o (R, G, B, A) si la imagen tiene transparencia.
-    """
     with Image.open(ruta_imagen) as img:
         img = img.convert("RGBA")  # Unifica el formato para facilitar el manejo
         ancho, alto = img.size
@@ -830,11 +757,6 @@ def obtener_pixeles(ruta_imagen):
 
 # 2.a)
 def obtenerQ3d(imgPts, objPts):
-    """
-    imgPts: (n,2) array con los (u,v) de cada punto en la imagen.
-    objPts: (n,3) array con los (U,V,W) de cada punto en el mundo.
-    Devuelve Q de tamaño (2n,12) según la ecuación 6.
-    """
     n = imgPts.shape[0]
     if objPts.shape[0] != n:
         raise ValueError("imgPts y objPts deben tener la misma cantidad de puntos")
@@ -851,36 +773,20 @@ def obtenerQ3d(imgPts, objPts):
 
 # 2.b)
 def resolverDLT3D(Q):
-    """
-    Q: (2n,12) matriz del sistema Qm = 0 (ecuación 6).
-    Devuelve la matriz de proyección M (3,4).
-    m es el autovector de QᵀQ de menor autovalor (equivale a la última columna de V en la SVD de Q).
-    """
-    # Autovectores de QᵀQ (12x12); diagRH los devuelve ordenados de mayor a menor autovalor
     S, D = diagRH(productoMatriz(Q.T, Q))
 
-    # El de menor autovalor es la última columna de S
     m = np.zeros(12)
     for i in range(12):
         m[i] = S[i][11]
 
-    # m = [m1; m2; m3] son las filas de M apiladas, así que la armamos de 3 filas
     M = m.reshape(3, 4)
 
     return M
 
 
 def devolverMatricesCalibracion3d(M, alpha_iguales=False, sin_sesgo=False):
-    """
-    M: (3,4) matriz de proyección, M = K [R | t].
-    alpha_iguales: si es True, impone alpha_u = alpha_v (usando el promedio de los dos).
-    sin_sesgo: si es True, impone K12 = 0.
-    Devuelve R (3,3) rotación, t (3,) traslación y K (3,3) intrínsecos.
-    """
-    # Primeras 3 columnas: A = K R
     A = M[0:3 , 0:3]
 
-    # A^-1 = R^T K^-1 = (ortogonal)(triangular superior), que es una QR
     A_inv = inversa(A)
 
     R_t, K_inv = QR_con_HH(A_inv)
@@ -889,16 +795,10 @@ def devolverMatricesCalibracion3d(M, alpha_iguales=False, sin_sesgo=False):
 
     K = inversa(K_inv)
 
-    # el c de M se cancela acá (K_inv trae 1/c), así que t no hay que reescalarlo
     t = calcularAx(K_inv, M[:, 3])
 
-    # M viene multiplicada por un c desconocido (m tiene norma 1), que queda metido en K.
-    # Según la ec. 4, K[2,2] tiene que valer 1, así que dividimos por él para sacar c.
     K = K / K[2, 2]
 
-    # Si m nos vino con el signo cambiado (c < 0), ese menos queda en R y t:
-    # R sale como una reflexión (det = -1) y el objeto queda detrás de la cámara.
-    # Dándolos vuelta a los dos la proyección no cambia y R pasa a ser una rotación.
     if determinante_3x3(R) < 0:
         R = -R
         t = -t
@@ -916,11 +816,6 @@ def devolverMatricesCalibracion3d(M, alpha_iguales=False, sin_sesgo=False):
 # ---------- Ejercicio 3: calibración con puntos coplanares (Zhang) ----------
 
 def obtenerQ2d(imgPts, objPts):
-    """
-    imgPts: (n,2) array con los (u,v) de cada esquina en la imagen.
-    objPts: (n,2) array con los (U,V) de cada esquina en el tablero (W = 0).
-    Devuelve Q de tamaño (2n,9) según la ecuación 11.
-    """
     n = len(imgPts)
     Q = np.zeros((2 * n, 9))
 
@@ -935,10 +830,6 @@ def obtenerQ2d(imgPts, objPts):
 
 
 def construirVij(ci, cj):
-    """
-    ci, cj: columnas i y j de una homografía H.
-    Devuelve el vector v_ij (6,) tal que ci^T B cj = v_ij · b, con b = (B11, B12, B22, B13, B23, B33).
-    """
     return np.array([ci[0] * cj[0],
                      ci[0] * cj[1] + ci[1] * cj[0],
                      ci[1] * cj[1],
@@ -948,10 +839,6 @@ def construirVij(ci, cj):
 
 
 def armarA(Hlst):
-    """
-    Hlst: lista de las N homografías H_j (3,3), una por captura.
-    Devuelve A (2N,6): cada H aporta 2 filas, r1 ⟂ r2 (v12) y ||r1|| = ||r2|| (v11 - v22).
-    """
     N = len(Hlst)
     A = []
     for j in range(N):
@@ -994,7 +881,6 @@ def calcularMatrizK2D(A):
 
 
 def obtenerPose2D(Hj, K):
-    """Pose (R_j, t_j) de una vista a partir de H_j y K (sección 2.2 h)."""
     Hj_T = Hj.T
     K_inv = inversa(K)
     lamda = 1 / norma(producto_matriz_vector(K_inv, Hj_T[0, :]), 2)
@@ -1014,14 +900,6 @@ def obtenerPose2D(Hj, K):
     return Rj, t
 
 def proyectarARotacion(M):
-    """
-    Rotación más cercana a una matriz M de 3x3 (que "casi" es una rotación).
-    Si M = U S V^T, la rotación más cercana es R = U V^T: es como dejar todos los
-    valores singulares en 1. Si el determinante da -1 (una reflexión), damos vuelta
-    la última columna de U para que quede +1.
-    M: (3,3) array.
-    Devuelve R (3,3) con R R^T = I y det(R) = +1.
-    """
     U, S, V = svd_reducida(np.array(M, dtype=float))
     R = productoMatriz(U, V.T)
     if determinante_3x3(R) < 0:
@@ -1033,14 +911,6 @@ def proyectarARotacion(M):
 # ---------- Ejercicio 4: ubicación en la cancha ----------
 
 def estimarHomografiaCancha(imgPts, canchaPts):
-    """
-    Estima la homografía H que lleva puntos de la cancha a la imagen.
-    imgPts: (n,2) array con los (u,v) de cada punto en la foto, en píxeles.
-    canchaPts: (n,2) array con los (U,V) de esos mismos puntos en la cancha, en metros.
-    Hacen falta al menos 4 puntos y que no haya 3 alineados.
-    Devuelve H (3,3), definida a menos de un factor de escala.
-    h es el autovector de QᵀQ de menor autovalor, igual que m en resolverDLT3D.
-    """
 
     Q = obtenerQ2d(imgPts, canchaPts)
     S , _ = diagRH(productoMatriz(Q.T, Q))
@@ -1054,9 +924,6 @@ def estimarHomografiaCancha(imgPts, canchaPts):
 
 
 def imagenACancha(H, imgPts):
-    """
-    Mapea puntos de la imagen a la cancha usando inversa(H)
-    """
     n = len(imgPts)
 
     H_inv = inversa(H)
@@ -1076,15 +943,6 @@ def imagenACancha(H, imgPts):
 
 
 def circuloEnCancha(centro, radio, n=100):
-    """
-    Muestrea puntos de un círculo sobre el piso, en coordenadas de la cancha.
-    centro: (U0, V0) en metros.
-    radio: radio del círculo en metros.
-    n: cantidad aproximada de puntos (la mitad para cada semicírculo).
-    Devuelve (m,2) array con los (U,V) del círculo, cerrado (el último punto es el primero).
-    Como no podemos usar np.cos ni np.sin, usamos la ecuación del círculo:
-    (U - U0)^2 + (V - V0)^2 = r^2  =>  V = V0 ± sqrt(r^2 - (U - U0)^2)
-    """
     U0, V0 = centro[0], centro[1]
     m = n // 2
 
@@ -1110,16 +968,6 @@ def circuloEnCancha(centro, radio, n=100):
 
 # 5.a
 def calibrarVistasSalguero(worldPts, imgPtsVistas, centro_optico):
-    """
-    Calcula K a partir de varias vistas de la esquina de Salguero, con el método del ejercicio 3
-    pero simplificado: suponemos píxeles cuadrados (alpha_u = alpha_v = f), sin sesgo (K12 = 0)
-    y el centro óptico (u0, v0) en el centro de la imagen. Así la única incógnita es f.
-    worldPts: (n,3) array con los (X,Y,Z) de cada punto, en metros. Z se ignora: los puntos del
-        cordón están a 0,1 m del piso y los tratamos como si estuvieran en Z = 0.
-    imgPtsVistas: lista con un (n,2) array por vista, con los (u,v) de cada punto en esa foto.
-    centro_optico: (u0, v0) en píxeles, el centro de la imagen.
-    Devuelve K (3,3).
-    """
     u0, v0 = centro_optico[0], centro_optico[1]
 
     # Con el centro óptico en el origen, K = diag(f, f, 1) y B = K^-T K^-1 = diag(w, w, 1), con w = 1/f^2.
@@ -1130,7 +978,6 @@ def calibrarVistasSalguero(worldPts, imgPtsVistas, centro_optico):
     a = []
     c = []
     for k in range(len(imgPtsVistas)):
-        # Corremos los píxeles para que el centro óptico quede en (0, 0)
         pts = np.array(imgPtsVistas[k], dtype=float)
         pts_centrados = np.zeros(pts.shape)
         pts_centrados[:, 0] = pts[:, 0] - u0
@@ -1148,7 +995,7 @@ def calibrarVistasSalguero(worldPts, imgPtsVistas, centro_optico):
     a = np.array(a)
     c = np.array(c)
 
-    # Cuadrados mínimos para una sola incógnita: minimizar sum (a_i w + c_i)^2  =>  w = -sum(a c) / sum(a^2)
+    # cuadrados mínimos de a w + c = 0
     w = -np.sum(a * c) / np.sum(a * a)
     if w <= 0:
         raise ValueError("w = 1/f^2 dio negativo: las vistas no alcanzan para estimar f")
@@ -1161,18 +1008,8 @@ def calibrarVistasSalguero(worldPts, imgPtsVistas, centro_optico):
 
 # 5.b
 def calcularPoseSalguero(worldPts, imgPts, K):
-    """
-    Calcula la pose de la cámara a partir de puntos del piso (Z = 0) y la K del 5a.
-    Como todos los puntos son coplanares no sirve el DLT 3D (ver ejercicio 1a), así que
-    hacemos como en el ejercicio 3: la homografía del piso y obtenerPose2D.
-    worldPts: (n,3) array con los (X,Y,Z) de cada punto, en metros (todos con Z = 0).
-    imgPts: (n,2) array con los (u,v) de cada punto en la imagen, en píxeles.
-    K: (3,3) intrínsecos de la cámara.
-    Devuelve R (3,3) y t (3,).
-    """
     H = estimarHomografiaCancha(imgPts, np.array(worldPts, dtype=float)[:, 0:2])
     R, t = obtenerPose2D(H, K)
-
     # Si K no es del todo consistente con esta foto, r1 y r2 no salen del mismo largo ni
     # perpendiculares, y R no es una rotación. Nos quedamos con la rotación más cercana.
     R = proyectarARotacion(R)
@@ -1181,12 +1018,6 @@ def calcularPoseSalguero(worldPts, imgPts, K):
 
 # 5.c
 def tiempoDesdeNombre(nombre_archivo):
-    """
-    Saca el instante de una captura a partir de su nombre, en segundos.
-    Ej: 'img_10_18_47_351.jpg' son las 10:18:47 y 351 milisegundos.
-    nombre_archivo: nombre (o ruta) del archivo.
-    Devuelve el tiempo en segundos desde las 00:00.
-    """
     # Nos quedamos con el nombre sin carpetas ni extensión y lo partimos por los "_"
     nombre = nombre_archivo.split("/")[-1].split(".")[0]
     partes = nombre.split("_")
@@ -1195,12 +1026,6 @@ def tiempoDesdeNombre(nombre_archivo):
 
 
 def velocidadPuntos(posiciones, tiempos):
-    """
-    Velocidad de un agente entre capturas consecutivas.
-    posiciones: (n,2) array con la posición (X,Y) del agente en el piso en cada captura, en metros.
-    tiempos: (n,) array con el instante de cada captura, en segundos.
-    Devuelve (n-1,) array con el módulo de la velocidad (m/s) entre cada captura y la siguiente.
-    """
     n = len(posiciones)
     velocidades = np.zeros(n - 1)
     for i in range(n - 1):
@@ -1214,21 +1039,104 @@ def velocidadPuntos(posiciones, tiempos):
 
 # ---------- Ejercicio 6: POSIT para puntos coplanares ----------
 
+def productoInterno(a, b):
+    suma = 0.0
+    for i in range(len(a)):
+        suma += a[i] * b[i]
+    return suma
+
+
 def calculoLambdaMu(I0, J0):
-    """Lista de tuplas (lambda, mu) solución de la ecuación 16."""
-    raise NotImplementedError
+    # (ecuación 17)
+    re = productoInterno(J0, J0) - productoInterno(I0, I0)   # lambda^2 - mu^2
+    im = -2.0 * productoInterno(I0, J0)                      # 2 lambda mu
+    t = np.sqrt(re**2 + im**2)              # Módulo de C^2, que es igual a lambda^2 + mu^2
+    # Despejamos ambas ecuaciones
+    lam = np.sqrt(max((t + re) / 2, 0.0))
+    mu = np.sqrt(max((t - re) / 2, 0.0))
+    if im < 0:
+        mu = -mu                        # lambda*mu tiene que tener el signo de im
+    
+    return [(lam, mu), (-lam, -mu)]     # Las dos raíces de C^2 son C y -C
 
 
 def calcularSalidaPOSIT(Is, Js, fx, m0, M0):
-    """Pose posible (i, j, k, Z0, R, t) a partir de (I_s, J_s)."""
-    raise NotImplementedError
+    nI = norma(Is, 2)
+    nJ = norma(Js, 2)
+    Z0 = fx / ((nI + nJ) / 2)          # ||I|| = ||J||
+    i = Is / nI
+    j = Js / nJ
+    k = productoVectorial(i, j)
+    R = np.array([i, j, k])
+    T = (Z0 / fx) * np.array([m0[0], m0[1], fx])   # vector O M0 en coords de cámara
+    t = T - producto_matriz_vector(R, M0)
+    return i, j, k, Z0, R, t
 
 
 def evaluarPose(R, t, obj_vecs, img_vecs, K):
-    """Devuelve (cantidad de proyecciones válidas, RMS del error de reproyección)."""
-    raise NotImplementedError
+    obj_vecs = np.array(obj_vecs)
+    img_vecs = np.array(img_vecs)
+    n = obj_vecs.shape[0]
+    validas = 0
+    for p in range(n):
+        Zp = producto_matriz_vector(R, obj_vecs[p])[2] + t[2]
+        if Zp > 0:
+            validas += 1
+    proy = proyectarPuntosPinhole(K, R, t, obj_vecs)
+    err2 = np.sum((proy - img_vecs) ** 2, axis=1)
+    rms = np.sqrt(np.sum(err2) / n)
+    return validas, rms
 
 
 def aplicarPOSIT(obj_vecs, img_vecs, K, MaxIt, atol):
-    """Ejecuta POSIT. Devuelve (R, t)."""
-    raise NotImplementedError
+    obj_vecs = np.array(obj_vecs)
+    img_vecs = np.array(img_vecs)
+    fx, fy = K[0, 0], K[1, 1]
+    cu, cv = K[0, 2], K[1, 2]
+
+    x = img_vecs[:, 0] - cu
+    y = (img_vecs[:, 1] - cv) * fx / fy
+    x0, y0 = x[0], y[0]
+
+    # Matriz A: vectores a_i = M0 Mi (i = 1..n-1)
+    M0 = obj_vecs[0]
+    A = obj_vecs[1:] - M0
+    Ap = pseudoinversa(A)
+
+    mejor = 0.0
+    nvec = None
+    for a in range(len(A)):
+        for b in range(a + 1, len(A)):
+            c = productoVectorial(A[a], A[b])
+            if norma(c, 2) > mejor:
+                mejor = norma(c, 2)
+                nvec = c
+    nvec = nvec / norma(nvec, 2)
+
+    eps = np.zeros(len(A))
+    rms_prev = float('inf')
+    R_mejor, t_mejor = None, None
+
+    for it in range(MaxIt):
+        bu = x[1:] * (1 + eps) - x0
+        bv = y[1:] * (1 + eps) - y0
+        I0 = producto_matriz_vector(Ap, bu)
+        J0 = producto_matriz_vector(Ap, bv)
+        candidatas = []
+        for lam, mu in calculoLambdaMu(I0, J0):
+            I = I0 + lam * nvec
+            J = J0 + mu * nvec
+            i_, j_, k_, Z0, R, t = calcularSalidaPOSIT(I, J, fx, (x0, y0), M0)
+            validas, rms = evaluarPose(R, t, obj_vecs, img_vecs, K)
+            if validas == len(obj_vecs):          # descartamos poses con puntos detrás de la cámara
+                candidatas.append((rms, R, t, k_, Z0))
+        if len(candidatas) == 0:
+            break
+        rms, R, t, k_, Z0 = min(candidatas, key=lambda c: c[0])
+        R_mejor, t_mejor = R, t
+        eps = producto_matriz_vector(A, k_) / Z0
+        if abs(rms_prev - rms) < atol:
+            break
+        rms_prev = rms
+
+    return R_mejor, t_mejor
